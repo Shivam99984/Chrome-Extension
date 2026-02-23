@@ -3,7 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const OpenAI = require('openai');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const apiKey = process.env.OPENAI_API_KEY;
+if (!apiKey) {
+  throw new Error('OPENAI_API_KEY is required for embedding generation.');
+}
+
+const openai = new OpenAI({ apiKey });
 
 const INPUT_PATH = process.env.STUDY_MATERIAL_PATH || path.join(__dirname, 'data', 'study_material.txt');
 const OUTPUT_PATH = path.join(__dirname, 'data', 'vectors.json');

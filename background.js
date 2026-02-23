@@ -3,7 +3,7 @@ const DEFAULT_SETTINGS = {
   threshold: 70,
   adminAuthenticated: false,
   minRateLimitMs: 7000,
-  backendUrl: 'http://localhost:3000/solve'
+  backendUrl: 'http://localhost:3000'
 };
 
 const ADMIN_PASSWORD = 'ChangeMe123!';
@@ -49,7 +49,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       let lastError = null;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-          const resp = await fetch(backendUrl || DEFAULT_SETTINGS.backendUrl, {
+          const resp = await fetch(`${backendUrl || DEFAULT_SETTINGS.backendUrl}/solve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -63,6 +63,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
       sendResponse({ ok: false, error: String(lastError?.message || lastError || 'Unknown error') });
+      return;
+    }
+
+    if (message.type === 'SAVE_API_KEY') {
+      const { backendUrl } = await chrome.storage.local.get('backendUrl');
+      try {
+        const resp = await fetch(`${backendUrl || DEFAULT_SETTINGS.backendUrl}/config/api-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: message.apiKey })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        sendResponse({ ok: true, data });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error.message || error) });
+      }
+      return;
+    }
+
+    if (message.type === 'UPLOAD_STUDY_MATERIAL') {
+      const { backendUrl } = await chrome.storage.local.get('backendUrl');
+      try {
+        const resp = await fetch(`${backendUrl || DEFAULT_SETTINGS.backendUrl}/study-material`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: message.text })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        sendResponse({ ok: true, data });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error.message || error) });
+      }
       return;
     }
 

@@ -10,8 +10,8 @@ A working Chrome Extension (Manifest V3) + Node.js backend project that can pars
 - `background.js` - extension control + backend relay + retries
 - `content.js` - page scanning, answer selection, ASP.NET-safe next
 - `popup.html` / `popup.js` / `styles.css` - control panel + metrics + CSV
-- `server.js` - Express API with `/solve` and rate limiting
-- `embedding_script.js` - study-material ingestion and embedding index
+- `server.js` - Express API with `/solve`, runtime API-key config, study upload
+- `embedding_script.js` - offline study-material ingestion and embedding index
 - `data/study_material.txt` - source study content
 - `data/vectors.json` - generated vector index
 
@@ -25,16 +25,21 @@ A working Chrome Extension (Manifest V3) + Node.js backend project that can pars
    ```bash
    cp .env.example .env
    ```
-3. Put your study content in `data/study_material.txt`.
-4. Build embeddings:
-   ```bash
-   npm run ingest
-   ```
-5. Start server:
+3. Start server:
    ```bash
    npm start
    ```
-6. In Chrome, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, choose this folder.
+4. In Chrome, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, choose this folder.
+
+## Add API key and upload study material from extension
+
+1. Open extension popup.
+2. In **OpenAI API Key**, paste your key and click **Save API Key**.
+3. Choose a `.txt` file in **Study Material (txt)**.
+4. Click **Upload & Rebuild RAG**.
+5. After successful upload, the backend stores:
+   - uploaded text in `data/study_material.txt`
+   - vectors in `data/vectors.json`
 
 ## Usage
 
@@ -45,7 +50,15 @@ A working Chrome Extension (Manifest V3) + Node.js backend project that can pars
 5. Click **Start**.
 6. Use **Stop**, **Clear Logs**, **Export CSV** as needed.
 
+## Optional offline ingestion
+
+If you prefer CLI ingestion instead of popup upload:
+
+```bash
+npm run ingest
+```
+
 ## Notes
 
 - For a page-specific deployment, fine-tune selectors in `content.js`.
-- Backend expects OpenAI API access.
+- Backend now accepts API key at runtime via `/config/api-key`.

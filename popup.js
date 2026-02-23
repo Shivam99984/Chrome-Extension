@@ -33,6 +33,34 @@ el('authBtn').addEventListener('click', async () => {
   setStatus(resp.ok ? 'Admin unlocked.' : 'Invalid password.', !resp.ok);
 });
 
+el('saveApiKeyBtn').addEventListener('click', async () => {
+  const apiKey = el('apiKey').value.trim();
+  if (!apiKey) {
+    setStatus('Please enter an API key first.', true);
+    return;
+  }
+  const resp = await chrome.runtime.sendMessage({ type: 'SAVE_API_KEY', apiKey });
+  setStatus(resp.ok ? 'API key saved on backend.' : (resp.error || 'API key save failed.'), !resp.ok);
+});
+
+el('uploadStudyBtn').addEventListener('click', async () => {
+  const file = el('studyFile').files?.[0];
+  if (!file) {
+    setStatus('Please choose a study material .txt file.', true);
+    return;
+  }
+
+  const text = await file.text();
+  if (!text.trim()) {
+    setStatus('Study material file is empty.', true);
+    return;
+  }
+
+  setStatus('Uploading study material and rebuilding vectors...');
+  const resp = await chrome.runtime.sendMessage({ type: 'UPLOAD_STUDY_MATERIAL', text });
+  setStatus(resp.ok ? `Study material uploaded. Indexed chunks: ${resp.data?.chunks ?? 0}` : (resp.error || 'Upload failed.'), !resp.ok);
+});
+
 el('startBtn').addEventListener('click', async () => {
   const threshold = Number(el('threshold').value);
   await chrome.runtime.sendMessage({ type: 'UPDATE_THRESHOLD', threshold });

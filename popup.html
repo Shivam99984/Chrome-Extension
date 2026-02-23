@@ -17,6 +17,14 @@
       <label>Confidence Threshold (0-100)</label>
       <input id="threshold" type="number" min="0" max="100" value="70" />
 
+      <label>OpenAI API Key</label>
+      <input id="apiKey" type="password" placeholder="sk-..." />
+      <button id="saveApiKeyBtn">Save API Key</button>
+
+      <label>Study Material (txt)</label>
+      <input id="studyFile" type="file" accept=".txt,text/plain" />
+      <button id="uploadStudyBtn">Upload & Rebuild RAG</button>
+
       <div class="row">
         <button id="startBtn" class="primary">Start</button>
         <button id="stopBtn">Stop</button>
