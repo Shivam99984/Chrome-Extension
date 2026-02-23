@@ -1,0 +1,64 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f7f7f8;
+}
+
+.panel {
+  width: 320px;
+  padding: 12px;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+h2 {
+  font-size: 14px;
+  margin: 10px 0 6px;
+}
+
+label {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #374151;
+}
+
+input, button {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.row button {
+  flex: 1;
+}
+
+button.primary {
+  background: #2563eb;
+  color: white;
+  border: 0;
+}
+
+.stats {
+  margin-top: 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+}
+
+#status {
+  min-height: 18px;
+  font-size: 12px;
+  margin-top: 10px;
+}
