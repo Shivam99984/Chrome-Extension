@@ -25,9 +25,18 @@
       <input id="studyFile" type="file" accept=".txt,text/plain" />
       <button id="uploadStudyBtn">Upload & Rebuild RAG</button>
 
+      <label>Selector Profiles JSON (optional override)</label>
+      <textarea id="profilesJson" rows="6" placeholder='[{"id":"siteA","hostPattern":"example.com","questionSelectors":["#q"],"optionSelectors":["input[type=radio]"],"nextSelectors":["#nextBtn"],"nextKeywords":["next"]}]'></textarea>
+      <button id="saveProfilesBtn">Save Selector Profiles</button>
+
       <div class="row">
         <button id="startBtn" class="primary">Start</button>
         <button id="stopBtn">Stop</button>
+      </div>
+
+      <div class="row">
+        <button id="markCorrectBtn">Mark Last Correct</button>
+        <button id="markWrongBtn">Mark Last Wrong</button>
       </div>
 
       <div class="row">
@@ -37,8 +46,9 @@
 
       <section class="stats">
         <h2>Accuracy</h2>
-        <p>Total: <span id="total">0</span></p>
-        <p>Correct: <span id="correct">0</span></p>
+        <p>Total Answered: <span id="total">0</span></p>
+        <p>Verified Correct: <span id="correct">0</span></p>
+        <p>Verified Wrong: <span id="wrong">0</span></p>
         <p>Accuracy: <span id="accuracy">0%</span></p>
       </section>
 
