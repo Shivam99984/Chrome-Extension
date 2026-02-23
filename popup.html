@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AI MCQ Assistant Pro</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <h1>AI MCQ Assistant Pro</h1>
+
+      <label>Confidence Threshold (0-100)</label>
+      <input id="threshold" type="number" min="0" max="100" value="70" />
+
+      <label>OpenAI API Key</label>
+      <input id="apiKey" type="password" placeholder="sk-..." />
+      <button id="saveApiKeyBtn">Save API Key</button>
+
+      <label>Study Material (txt)</label>
+      <input id="studyFile" type="file" accept=".txt,text/plain" />
+      <button id="uploadStudyBtn">Upload & Rebuild RAG</button>
+
+      <div class="row">
+        <button id="startBtn" class="primary">Start</button>
+        <button id="stopBtn">Stop</button>
+      </div>
+
+      <div class="row">
+        <button id="clearLogsBtn">Clear Logs</button>
+        <button id="exportCsvBtn">Export CSV</button>
+      </div>
+
+      <section class="stats">
+        <h2>Accuracy</h2>
+        <p>Total: <span id="total">0</span></p>
+        <p>Correct: <span id="correct">0</span></p>
+        <p>Accuracy: <span id="accuracy">0%</span></p>
+      </section>
+
+      <p id="status"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
