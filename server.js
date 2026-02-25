@@ -1,7 +1,6 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const OpenAI = require('openai');
@@ -12,131 +11,18 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 30 }));
 
 const INDEX_PATH = path.join(__dirname, 'data', 'vectors.json');
 const STUDY_MATERIAL_PATH = process.env.STUDY_MATERIAL_PATH || path.join(__dirname, 'data', 'study_material.txt');
-const SECURE_CONFIG_PATH = path.join(__dirname, 'data', 'secure_config.json');
 
-const ADMIN_TOKEN_SECRET = process.env.ADMIN_TOKEN_SECRET || 'change-admin-token-secret';
-const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || 'change-encryption-secret-32bytes-minimum';
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-
+let runtimeApiKey = process.env.OPENAI_API_KEY || '';
 let vectorIndex = [];
-if (fs.existsSync(INDEX_PATH)) vectorIndex = JSON.parse(fs.readFileSync(INDEX_PATH, 'utf8'));
-
-function b64urlEncode(str) {
-  return Buffer.from(str, 'utf8').toString('base64url');
-}
-
-function b64urlDecode(str) {
-  return Buffer.from(str, 'base64url').toString('utf8');
-}
-
-function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
-  const iterations = 210000;
-  const keylen = 32;
-  const digest = 'sha256';
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('hex');
-  return `pbkdf2$${iterations}$${salt}$${hash}`;
-}
-
-function verifyPassword(password, stored) {
-  if (!stored.startsWith('pbkdf2$')) return false;
-  const [, iterStr, salt, hash] = stored.split('$');
-  const iterations = Number(iterStr);
-  const candidate = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256').toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(candidate, 'hex'), Buffer.from(hash, 'hex'));
-}
-
-function getExpectedPasswordHash() {
-  if (ADMIN_PASSWORD_HASH) return ADMIN_PASSWORD_HASH;
-  if (ADMIN_PASSWORD) return hashPassword(ADMIN_PASSWORD, 'legacy-fixed-salt');
-  throw new Error('Set ADMIN_PASSWORD_HASH (recommended) or ADMIN_PASSWORD.');
-}
-
-function signToken(payload) {
-  const data = b64urlEncode(JSON.stringify(payload));
-  const sig = crypto.createHmac('sha256', ADMIN_TOKEN_SECRET).update(data).digest('base64url');
-  return `${data}.${sig}`;
-}
-
-function verifyToken(token) {
-  const [data, sig] = String(token || '').split('.');
-  if (!data || !sig) return null;
-  const expected = crypto.createHmac('sha256', ADMIN_TOKEN_SECRET).update(data).digest('base64url');
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
-  const payload = JSON.parse(b64urlDecode(data));
-  if (!payload?.exp || Date.now() > payload.exp) return null;
-  return payload;
-}
-
-function getCipherKey() {
-  return crypto.createHash('sha256').update(ENCRYPTION_SECRET).digest();
-}
-
-function encryptText(plain) {
-  const iv = crypto.randomBytes(12);
-  const key = getCipherKey();
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return {
-    alg: 'aes-256-gcm',
-    iv: iv.toString('base64'),
-    tag: tag.toString('base64'),
-    value: enc.toString('base64')
-  };
-}
-
-function decryptText(payload) {
-  if (!payload?.iv || !payload?.tag || !payload?.value) return '';
-  const key = getCipherKey();
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(payload.iv, 'base64'));
-  decipher.setAuthTag(Buffer.from(payload.tag, 'base64'));
-  const dec = Buffer.concat([
-    decipher.update(Buffer.from(payload.value, 'base64')),
-    decipher.final()
-  ]);
-  return dec.toString('utf8');
-}
-
-function loadSecureConfig() {
-  if (!fs.existsSync(SECURE_CONFIG_PATH)) return {};
-  return JSON.parse(fs.readFileSync(SECURE_CONFIG_PATH, 'utf8'));
-}
-
-function saveSecureConfig(cfg) {
-  fs.mkdirSync(path.dirname(SECURE_CONFIG_PATH), { recursive: true });
-  fs.writeFileSync(SECURE_CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
-}
-
-function getRuntimeApiKey() {
-  const secure = loadSecureConfig();
-  if (secure?.openai?.value) {
-    try {
-      return decryptText(secure.openai);
-    } catch {
-      return '';
-    }
-  }
-  return process.env.OPENAI_API_KEY || '';
+if (fs.existsSync(INDEX_PATH)) {
+  vectorIndex = JSON.parse(fs.readFileSync(INDEX_PATH, 'utf8'));
 }
 
 function getOpenAIClient() {
-  const apiKey = getRuntimeApiKey();
-  if (!apiKey) throw new Error('OpenAI API key is not configured.');
-  return new OpenAI({ apiKey });
-}
-
-function requireAdmin(req, res, next) {
-  try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    const payload = verifyToken(token);
-    if (!payload) return res.status(401).json({ error: 'Unauthorized' });
-    req.admin = payload;
-    return next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (!runtimeApiKey) {
+    throw new Error('OpenAI API key is not configured. Save API key from popup or set OPENAI_API_KEY.');
   }
+  return new OpenAI({ apiKey: runtimeApiKey });
 }
 
 function dot(a, b) {
@@ -144,7 +30,11 @@ function dot(a, b) {
   for (let i = 0; i < a.length; i += 1) total += a[i] * b[i];
   return total;
 }
-function mag(a) { return Math.sqrt(dot(a, a)); }
+
+function mag(a) {
+  return Math.sqrt(dot(a, a));
+}
+
 function cosine(a, b) {
   const denominator = mag(a) * mag(b);
   return denominator ? dot(a, b) / denominator : 0;
@@ -171,8 +61,10 @@ async function rebuildVectorIndex(studyText) {
   const chunks = splitChunks(studyText).filter(Boolean);
   const vectors = [];
   for (let i = 0; i < chunks.length; i += 1) {
-    vectors.push({ id: i + 1, chunk: chunks[i], embedding: await embed(chunks[i]) });
+    const embedding = await embed(chunks[i]);
+    vectors.push({ id: i + 1, chunk: chunks[i], embedding });
   }
+
   fs.mkdirSync(path.dirname(INDEX_PATH), { recursive: true });
   fs.writeFileSync(STUDY_MATERIAL_PATH, studyText, 'utf8');
   fs.writeFileSync(INDEX_PATH, JSON.stringify(vectors), 'utf8');
@@ -190,35 +82,20 @@ async function getTopChunks(question, topK = 3) {
     .map((x) => x.chunk);
 }
 
-app.post('/auth/login', (req, res) => {
-  try {
-    const { password } = req.body || {};
-    if (!password) return res.status(400).json({ error: 'Password required' });
-    const ok = verifyPassword(String(password), getExpectedPasswordHash());
-    if (!ok) return res.status(401).json({ error: 'Invalid admin password' });
-    const token = signToken({ role: 'admin', exp: Date.now() + 8 * 60 * 60 * 1000 });
-    return res.json({ ok: true, token });
-  } catch (error) {
-    return res.status(500).json({ error: String(error.message || error) });
-  }
-});
-
-app.post('/config/api-key', requireAdmin, (req, res) => {
+app.post('/config/api-key', (req, res) => {
   try {
     const { apiKey } = req.body || {};
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.startsWith('sk-')) {
       return res.status(400).json({ error: 'Invalid API key format.' });
     }
-    const secure = loadSecureConfig();
-    secure.openai = encryptText(apiKey.trim());
-    saveSecureConfig(secure);
-    return res.json({ ok: true, storedEncrypted: true });
+    runtimeApiKey = apiKey.trim();
+    return res.json({ ok: true });
   } catch (error) {
     return res.status(500).json({ error: String(error.message || error) });
   }
 });
 
-app.post('/study-material', requireAdmin, async (req, res) => {
+app.post('/study-material', async (req, res) => {
   try {
     const { text } = req.body || {};
     if (!text || typeof text !== 'string' || !text.trim()) {
@@ -231,7 +108,7 @@ app.post('/study-material', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/solve', requireAdmin, async (req, res) => {
+app.post('/solve', async (req, res) => {
   try {
     const { question, options } = req.body || {};
     if (!question || !Array.isArray(options) || options.length < 2) {
@@ -239,6 +116,7 @@ app.post('/solve', requireAdmin, async (req, res) => {
     }
 
     const chunks = await getTopChunks(question, 3);
+
     const system = 'You are an MCQ solver that must only use provided study material context.';
     const userPrompt = [
       'Answer ONLY using the study material below.',
@@ -255,6 +133,7 @@ app.post('/solve', requireAdmin, async (req, res) => {
 
     let parsed = null;
     let lastError = null;
+
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const openai = getOpenAIClient();
@@ -266,6 +145,7 @@ app.post('/solve', requireAdmin, async (req, res) => {
           ],
           temperature: 0.2
         });
+
         const text = completion.choices?.[0]?.message?.content?.trim() || '{}';
         parsed = JSON.parse(text.replace(/^```json/i, '').replace(/```$/i, '').trim());
         break;
@@ -274,7 +154,10 @@ app.post('/solve', requireAdmin, async (req, res) => {
       }
     }
 
-    if (!parsed || typeof parsed.answer !== 'string') throw lastError || new Error('Model response parsing failed');
+    if (!parsed || typeof parsed.answer !== 'string') {
+      throw lastError || new Error('Model response parsing failed');
+    }
+
     const confidence = Math.max(0, Math.min(100, Number(parsed.confidence) || 0));
     return res.json({ answer: parsed.answer, confidence });
   } catch (error) {
@@ -286,11 +169,12 @@ app.get('/health', (_, res) => {
   res.json({
     ok: true,
     vectors: vectorIndex.length,
-    apiKeyConfigured: !!getRuntimeApiKey(),
-    secureConfigPath: SECURE_CONFIG_PATH,
-    hasAdminHash: !!ADMIN_PASSWORD_HASH
+    apiKeyConfigured: !!runtimeApiKey,
+    studyMaterialPath: STUDY_MATERIAL_PATH
   });
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server listening on http://localhost:${port}`));
+app.listen(port, () => {
+  console.log(`Server listening on http://localhost:${port}`);
+});

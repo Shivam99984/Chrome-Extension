@@ -4,24 +4,16 @@ A working Chrome Extension (Manifest V3) + Node.js backend project that can pars
 
 > Important: Use only on authorized training/practice environments.
 
-## Key security upgrades
-
-- Admin login now uses backend-issued token (`/auth/login`).
-- Protected routes (`/solve`, `/study-material`, `/config/api-key`) require bearer token.
-- OpenAI API key is stored encrypted at rest in `data/secure_config.json` (AES-256-GCM).
-- Admin password supports hashed storage via `ADMIN_PASSWORD_HASH`.
-
 ## Project structure
 
 - `manifest.json` - Chrome extension manifest
-- `background.js` - extension control + backend relay + retries + auth token handling
-- `content.js` - page scanning, profile-based selectors, fuzzy option matching, ASP.NET-safe next
-- `popup.html` / `popup.js` / `styles.css` - control panel + metrics + CSV + manual verification
-- `server.js` - Express API with secure admin flow + solve + RAG endpoints
+- `background.js` - extension control + backend relay + retries
+- `content.js` - page scanning, answer selection, ASP.NET-safe next
+- `popup.html` / `popup.js` / `styles.css` - control panel + metrics + CSV
+- `server.js` - Express API with `/solve`, runtime API-key config, study upload
 - `embedding_script.js` - offline study-material ingestion and embedding index
 - `data/study_material.txt` - source study content
 - `data/vectors.json` - generated vector index
-- `data/secure_config.json` - encrypted API key storage (created at runtime)
 
 ## Setup
 
@@ -33,43 +25,40 @@ A working Chrome Extension (Manifest V3) + Node.js backend project that can pars
    ```bash
    cp .env.example .env
    ```
-3. Set one of:
-   - `ADMIN_PASSWORD_HASH` (recommended)
-   - or `ADMIN_PASSWORD` (fallback)
-4. Start server:
+3. Start server:
    ```bash
    npm start
    ```
-5. In Chrome, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, choose this folder.
+4. In Chrome, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, choose this folder.
 
-## Extension usage
+## Add API key and upload study material from extension
 
 1. Open extension popup.
-2. Enter admin password and click **Unlock** (gets backend token).
-3. (Optional) Save OpenAI API key from popup.
-4. Upload study material `.txt` to rebuild vectors.
-5. Set confidence threshold and click **Start**.
-6. Use **Mark Last Correct/Wrong** for manual accuracy tracking.
-7. Export logs via CSV anytime.
+2. In **OpenAI API Key**, paste your key and click **Save API Key**.
+3. Choose a `.txt` file in **Study Material (txt)**.
+4. Click **Upload & Rebuild RAG**.
+5. After successful upload, the backend stores:
+   - uploaded text in `data/study_material.txt`
+   - vectors in `data/vectors.json`
 
-## Per-page selector profiles
+## Usage
 
-Use **Selector Profiles JSON** in popup to customize extraction per host. Example:
+1. Open your authorized MCQ page.
+2. Open extension popup.
+3. Set confidence threshold.
+4. Click **Start**.
+5. Use **Stop**, **Clear Logs**, **Export CSV** as needed.
 
-```json
-[
-  {
-    "id": "aspnet-prod",
-    "hostPattern": "exam.example.com",
-    "questionSelectors": ["#ctl00_ContentPlaceHolder1_lblQuestion", ".question-title"],
-    "optionSelectors": ["#ctl00_ContentPlaceHolder1_rblOptions input[type='radio']"],
-    "nextSelectors": ["#ctl00_ContentPlaceHolder1_btnNext", "button", "a"],
-    "nextKeywords": ["next", "save and next"]
-  }
-]
+## Optional offline ingestion
+
+If you prefer CLI ingestion instead of popup upload:
+
+```bash
+npm run ingest
 ```
 
 ## Notes
 
-- For page-specific reliability, tune selector profiles instead of hardcoding one selector.
-- Accuracy % is now based on manually verified results (correct/wrong), not auto-assumed correctness.
+- For a page-specific deployment, fine-tune selectors in `content.js`.
+- Backend accepts API key at runtime via `/config/api-key`.
+- If Start or Save API Key fails, verify backend is running at `http://localhost:3000`.

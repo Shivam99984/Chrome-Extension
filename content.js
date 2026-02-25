@@ -7,55 +7,27 @@
   const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
   async function getState() {
-    return chrome.storage.local.get(['running', 'threshold', 'minRateLimitMs', 'selectorProfiles']);
+    return chrome.storage.local.get(['running', 'threshold', 'minRateLimitMs']);
   }
 
   function normalize(t) {
     return (t || '').replace(/\s+/g, ' ').trim();
   }
 
-  function normalizeOptionText(text) {
-    return normalize(text)
-      .toLowerCase()
-      .replace(/^[a-d]\s*[\).:-]\s*/i, '')
-      .replace(/[^a-z0-9\s]/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+  function findQuestionElement() {
+    const candidates = [
+      ...document.querySelectorAll('[id*="lblQuestion"], [class*="lblQuestion"]'),
+      ...document.querySelectorAll('h1,h2,h3,h4,h5,strong,p,span,div')
+    ];
 
-  function similarity(a, b) {
-    if (!a || !b) return 0;
-    const aa = normalizeOptionText(a);
-    const bb = normalizeOptionText(b);
-    if (aa === bb) return 1;
-    if (aa.includes(bb) || bb.includes(aa)) return 0.92;
-    const sa = new Set(aa.split(' '));
-    const sb = new Set(bb.split(' '));
-    const inter = [...sa].filter((x) => sb.has(x)).length;
-    const union = new Set([...sa, ...sb]).size || 1;
-    return inter / union;
-  }
-
-  function getProfile(profiles) {
-    const host = location.hostname.toLowerCase();
-    return (profiles || []).find((p) => {
-      if (!p.hostPattern || p.hostPattern === '*') return true;
-      return host.includes(String(p.hostPattern).toLowerCase());
-    }) || null;
-  }
-
-  function findQuestionElement(profile) {
-    const selectors = profile?.questionSelectors?.join(',') || '[id*="lblQuestion"], [class*="lblQuestion"], h1,h2,h3,strong,p,span,div';
-    const candidates = [...document.querySelectorAll(selectors)];
     return candidates.find((el) => {
       const text = normalize(el.textContent);
       return text.length > 8 && /question|q\.?\s*\d+/i.test(text);
     }) || null;
   }
 
-  function getRadioOptions(profile) {
-    const optionSelector = profile?.optionSelectors?.join(',') || 'input[type="radio"]';
-    const radios = [...document.querySelectorAll(optionSelector)].filter((r) => r.matches('input[type="radio"]') && !r.disabled);
+  function getRadioOptions() {
+    const radios = [...document.querySelectorAll('input[type="radio"]')].filter((r) => !r.disabled);
     return radios.map((input, i) => {
       const label =
         document.querySelector(`label[for="${CSS.escape(input.id || '')}"]`) ||
@@ -80,23 +52,16 @@
   }
 
   async function log(entry) {
-    await chrome.runtime.sendMessage({ type: 'APPEND_LOG', entry: { ...entry, timestamp: new Date().toISOString(), page: location.href } });
+    await chrome.runtime.sendMessage({ type: 'APPEND_LOG', entry: { ...entry, timestamp: new Date().toISOString() } });
   }
 
-  function safeNext(profile) {
+  function safeNext() {
     if (typeof window.__doPostBack === 'function') {
       window.__doPostBack('ctl00$ContentPlaceHolder1$btnNext', '');
       return true;
     }
-
-    const selectors = profile?.nextSelectors?.join(',') || 'button,input[type="button"],input[type="submit"],a';
-    const keywords = profile?.nextKeywords || ['next'];
-
-    const next = [...document.querySelectorAll(selectors)].find((el) => {
-      const txt = normalize(el.textContent || el.value).toLowerCase();
-      return keywords.some((k) => txt.includes(String(k).toLowerCase()));
-    });
-
+    const next = [...document.querySelectorAll('button,input[type="button"],input[type="submit"],a')]
+      .find((el) => /next/i.test(normalize(el.textContent || el.value)));
     if (next) {
       next.click();
       return true;
@@ -104,23 +69,15 @@
     return false;
   }
 
-  function bestOptionMatch(options, predicted) {
-    const ranked = options
-      .map((o) => ({ ...o, score: similarity(o.text, predicted) }))
-      .sort((a, b) => b.score - a.score);
-    return ranked[0]?.score >= 0.45 ? ranked[0] : null;
-  }
-
   async function attemptSolve() {
-    const { running, threshold = 70, minRateLimitMs = 7000, selectorProfiles = [] } = await getState();
+    const { running, threshold = 70, minRateLimitMs = 7000 } = await getState();
     if (!running || busy) return;
 
     const now = Date.now();
     if (now - lastRunAt < minRateLimitMs) return;
 
-    const profile = getProfile(selectorProfiles);
-    const questionEl = findQuestionElement(profile);
-    const options = getRadioOptions(profile);
+    const questionEl = findQuestionElement();
+    const options = getRadioOptions();
     if (!questionEl || options.length < 2) return;
 
     busy = true;
@@ -130,7 +87,11 @@
       await simulateHumanBehavior();
       const question = normalize(questionEl.textContent);
       const optionTexts = options.map((o) => o.text);
-      const solve = await chrome.runtime.sendMessage({ type: 'SOLVE_QUESTION', question, options: optionTexts });
+      const solve = await chrome.runtime.sendMessage({
+        type: 'SOLVE_QUESTION',
+        question,
+        options: optionTexts
+      });
 
       if (!solve?.ok) {
         await log({ question, predictedAnswer: '', confidence: 0, status: 'error', detail: solve?.error || 'Solve failed' });
@@ -143,7 +104,9 @@
         return;
       }
 
-      const match = bestOptionMatch(options, answer || '');
+      const match = options.find((o) => normalize(o.text).toLowerCase() === normalize(answer).toLowerCase())
+        || options.find((o) => normalize(o.text).toLowerCase().includes(normalize(answer).toLowerCase()));
+
       if (!match) {
         await log({ question, predictedAnswer: answer || '', confidence: Number(confidence) || 0, status: 'answer_not_found' });
         return;
@@ -151,12 +114,10 @@
 
       match.input.click();
       await sleep(randomBetween(150, 500));
-      const moved = safeNext(profile);
+      const moved = safeNext();
       await log({
         question,
         predictedAnswer: answer,
-        matchedOption: match.text,
-        matchScore: Number(match.score.toFixed(3)),
         confidence: Number(confidence) || 0,
         status: moved ? 'answered' : 'answered_no_next'
       });
@@ -169,7 +130,9 @@
 
   function setupObserver() {
     if (observer) observer.disconnect();
-    observer = new MutationObserver(() => attemptSolve());
+    observer = new MutationObserver(() => {
+      attemptSolve();
+    });
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
