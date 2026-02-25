@@ -19,8 +19,25 @@ app.use((req, res, next) => {
 
 const INDEX_PATH = path.join(__dirname, 'data', 'vectors.json');
 const STUDY_MATERIAL_PATH = process.env.STUDY_MATERIAL_PATH || path.join(__dirname, 'data', 'study_material.txt');
+const CONFIG_PATH = path.join(__dirname, 'data', 'runtime_config.json');
 
-let runtimeApiKey = process.env.OPENAI_API_KEY || '';
+function loadRuntimeApiKey() {
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
+  if (!fs.existsSync(CONFIG_PATH)) return '';
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    return typeof config.apiKey === 'string' ? config.apiKey : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function saveRuntimeApiKey(apiKey) {
+  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify({ apiKey }, null, 2), 'utf8');
+}
+
+let runtimeApiKey = loadRuntimeApiKey();
 let vectorIndex = [];
 if (fs.existsSync(INDEX_PATH)) {
   vectorIndex = JSON.parse(fs.readFileSync(INDEX_PATH, 'utf8'));
@@ -97,6 +114,7 @@ app.post('/config/api-key', (req, res) => {
       return res.status(400).json({ error: 'Invalid API key format.' });
     }
     runtimeApiKey = apiKey.trim();
+    saveRuntimeApiKey(runtimeApiKey);
     return res.json({ ok: true });
   } catch (error) {
     return res.status(500).json({ error: String(error.message || error) });
@@ -178,7 +196,8 @@ app.get('/health', (_, res) => {
     ok: true,
     vectors: vectorIndex.length,
     apiKeyConfigured: !!runtimeApiKey,
-    studyMaterialPath: STUDY_MATERIAL_PATH
+    studyMaterialPath: STUDY_MATERIAL_PATH,
+    apiKeySource: process.env.OPENAI_API_KEY ? 'env' : (fs.existsSync(CONFIG_PATH) ? 'runtime_config' : 'missing')
   });
 });
 

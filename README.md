@@ -77,6 +77,8 @@ npm run ingest
 
 ## Quick fix if it still says not working
 
+- Ensure extension has tab access permission enabled after reload.
+
 1. Click **Save Backend URL** (usually `http://localhost:3000`).
 2. Click **Check Backend** and confirm API key is `set`.
 3. Click **Test Solve** and confirm answer/confidence appears.
