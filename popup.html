@@ -10,6 +10,10 @@
     <main class="panel">
       <h1>AI MCQ Assistant Pro</h1>
 
+      <label>Backend URL</label>
+      <input id="backendUrl" type="text" placeholder="http://localhost:3000" />
+      <button id="saveBackendBtn">Save Backend URL</button>
+
       <label>Confidence Threshold (0-100)</label>
       <input id="threshold" type="number" min="0" max="100" value="70" />
 
@@ -20,6 +24,11 @@
       <label>Study Material (txt)</label>
       <input id="studyFile" type="file" accept=".txt,text/plain" />
       <button id="uploadStudyBtn">Upload & Rebuild RAG</button>
+
+      <div class="row">
+        <button id="checkBackendBtn">Check Backend</button>
+        <button id="testSolveBtn">Test Solve</button>
+      </div>
 
       <div class="row">
         <button id="startBtn" class="primary">Start</button>

@@ -34,19 +34,22 @@ A working Chrome Extension (Manifest V3) + Node.js backend project that can pars
 ## Add API key and upload study material from extension
 
 1. Open extension popup.
-2. In **OpenAI API Key**, paste your key and click **Save API Key**.
-3. Choose a `.txt` file in **Study Material (txt)**.
-4. Click **Upload & Rebuild RAG**.
-5. After successful upload, the backend stores:
+2. Set **Backend URL** (default `http://localhost:3000`) and click **Save Backend URL**.
+3. Click **Check Backend** (must show OK).
+4. Click **Test Solve** to verify one-click end-to-end backend solve.
+5. In **OpenAI API Key**, paste your key and click **Save API Key**.
+6. Choose a `.txt` file in **Study Material (txt)**.
+7. Click **Upload & Rebuild RAG**.
+8. After successful upload, the backend stores:
    - uploaded text in `data/study_material.txt`
    - vectors in `data/vectors.json`
 
 ## Usage
 
-1. Open your authorized MCQ page.
+1. Open your authorized MCQ page (HTTP/HTTPS).
 2. Open extension popup.
 3. Set confidence threshold.
-4. Click **Start**.
+4. Click **Start** (if page was already open, refresh once).
 5. Use **Stop**, **Clear Logs**, **Export CSV** as needed.
 
 ## Optional offline ingestion
@@ -61,4 +64,12 @@ npm run ingest
 
 - For a page-specific deployment, fine-tune selectors in `content.js`.
 - Backend accepts API key at runtime via `/config/api-key`.
-- If Start or Save API Key fails, verify backend is running at `http://localhost:3000`.
+- If Start or Save API Key fails, use **Check Backend** and confirm server is running at your saved backend URL.
+
+
+## Automation behavior
+
+- Human-like mouse movement simulation is enabled in `content.js`.
+- Human-like random delay (2–5 sec) is applied before each solve attempt.
+- Minimum per-question rate limit remains enforced to reduce rapid actions.
+- Additional non-blocking error handling is included so simulation errors do not crash the run.

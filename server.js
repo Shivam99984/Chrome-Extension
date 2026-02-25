@@ -9,6 +9,14 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 30 }));
 
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 const INDEX_PATH = path.join(__dirname, 'data', 'vectors.json');
 const STUDY_MATERIAL_PATH = process.env.STUDY_MATERIAL_PATH || path.join(__dirname, 'data', 'study_material.txt');
 

@@ -39,16 +39,25 @@
   }
 
   async function simulateHumanBehavior() {
-    window.scrollBy({ top: randomBetween(10, 80), left: 0, behavior: 'smooth' });
-    for (let i = 0; i < 4; i += 1) {
-      document.dispatchEvent(new MouseEvent('mousemove', {
-        clientX: randomBetween(20, Math.max(21, window.innerWidth - 20)),
-        clientY: randomBetween(20, Math.max(21, window.innerHeight - 20)),
-        bubbles: true
-      }));
-      await sleep(randomBetween(80, 220));
+    try {
+      window.scrollBy({ top: randomBetween(10, 80), left: 0, behavior: 'smooth' });
+
+      // Human-like random mouse simulation
+      for (let i = 0; i < 4; i += 1) {
+        document.dispatchEvent(new MouseEvent('mousemove', {
+          clientX: randomBetween(20, Math.max(21, window.innerWidth - 20)),
+          clientY: randomBetween(20, Math.max(21, window.innerHeight - 20)),
+          bubbles: true
+        }));
+        await sleep(randomBetween(80, 220));
+      }
+
+      // Human-like random delay (2–5 sec)
+      await sleep(randomBetween(2000, 5000));
+    } catch (error) {
+      // Non-blocking: behavior simulation failure should not stop solving
+      await log({ status: 'warning', detail: `simulateHumanBehavior failed: ${String(error)}` });
     }
-    await sleep(randomBetween(2000, 5000));
   }
 
   async function log(entry) {
@@ -99,6 +108,10 @@
       }
 
       const { answer, confidence } = solve.data || {};
+      if (typeof answer !== 'string') {
+        await log({ question, predictedAnswer: '', confidence: Number(confidence) || 0, status: 'invalid_model_response' });
+        return;
+      }
       if (Number(confidence) < Number(threshold)) {
         await log({ question, predictedAnswer: answer || '', confidence: Number(confidence) || 0, status: 'skipped_low_confidence' });
         return;
@@ -135,6 +148,12 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === 'PING_CONTENT') {
+      sendResponse({ ok: true });
+    }
+  });
 
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.running) {
