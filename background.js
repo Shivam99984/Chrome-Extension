@@ -17,6 +17,14 @@ async function getBaseUrl() {
   return baseUrl;
 }
 
+async function checkBackendHealthOrThrow() {
+  const baseUrl = await getBaseUrl();
+  const resp = await fetch(`${baseUrl}/health`);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return { baseUrl, data };
+}
+
 async function ensureContentScriptInActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
@@ -57,12 +65,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     if (message.type === 'SET_RUNNING') {
       if (message.running) {
+        try {
+          const { data } = await checkBackendHealthOrThrow();
+          if (!data?.apiKeyConfigured) {
+            sendResponse({ ok: false, error: 'Backend connected but API key is missing. Save API key first.' });
+            return;
+          }
+        } catch (error) {
+          sendResponse({ ok: false, error: `Backend unavailable: ${String(error.message || error)}` });
+          return;
+        }
+
         const injected = await ensureContentScriptInActiveTab();
         if (!injected.ok) {
           sendResponse({ ok: false, error: injected.error });
           return;
         }
       }
+
       await chrome.storage.local.set({ running: !!message.running });
       sendResponse({ ok: true });
       return;
@@ -83,17 +103,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === 'CHECK_BACKEND') {
       try {
-        const baseUrl = await getBaseUrl();
-        const resp = await fetch(`${baseUrl}/health`);
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        const { data } = await checkBackendHealthOrThrow();
         sendResponse({ ok: true, data });
       } catch (error) {
         sendResponse({ ok: false, error: `Backend check failed: ${String(error.message || error)}` });
       }
       return;
     }
-
 
     if (message.type === 'TEST_SOLVE') {
       const baseUrl = await getBaseUrl();
@@ -131,8 +147,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             body: JSON.stringify(body)
           });
           if (!resp.ok) {
-            const errText = await resp.text();
-            throw new Error(errText || `HTTP ${resp.status}`);
+            const errData = await resp.json().catch(async () => ({ error: await resp.text() }));
+            throw new Error(errData.error || `HTTP ${resp.status}`);
           }
           const data = await resp.json();
           sendResponse({ ok: true, data });

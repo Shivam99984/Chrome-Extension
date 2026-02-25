@@ -56,7 +56,7 @@ el('checkBackendBtn').addEventListener('click', withUiErrorHandling(async () => 
     setStatus(resp.error || 'Backend check failed.', true);
     return;
   }
-  setStatus(`Backend OK | vectors=${resp.data?.vectors ?? 0} | apiKey=${resp.data?.apiKeyConfigured ? 'set' : 'missing'}`);
+  setStatus(`Backend OK | vectors=${resp.data?.vectors ?? 0} | apiKey=${resp.data?.apiKeyConfigured ? 'set' : 'missing'} | path=${resp.data?.studyMaterialPath || 'n/a'}`);
 }));
 
 el('testSolveBtn').addEventListener('click', withUiErrorHandling(async () => {
@@ -104,7 +104,7 @@ el('startBtn').addEventListener('click', withUiErrorHandling(async () => {
   const threshold = Number(el('threshold').value);
   await chrome.runtime.sendMessage({ type: 'UPDATE_THRESHOLD', threshold });
   const resp = await chrome.runtime.sendMessage({ type: 'SET_RUNNING', running: true });
-  setStatus(resp.ok ? 'Automation started. (Refresh exam tab once if already open)' : resp.error || 'Could not start.', !resp.ok);
+  setStatus(resp.ok ? 'Automation started.' : resp.error || 'Could not start.', !resp.ok);
 }));
 
 el('stopBtn').addEventListener('click', withUiErrorHandling(async () => {

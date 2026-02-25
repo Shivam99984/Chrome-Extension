@@ -73,3 +73,12 @@ npm run ingest
 - Human-like random delay (2–5 sec) is applied before each solve attempt.
 - Minimum per-question rate limit remains enforced to reduce rapid actions.
 - Additional non-blocking error handling is included so simulation errors do not crash the run.
+
+
+## Quick fix if it still says not working
+
+1. Click **Save Backend URL** (usually `http://localhost:3000`).
+2. Click **Check Backend** and confirm API key is `set`.
+3. Click **Test Solve** and confirm answer/confidence appears.
+4. Open the exam tab (http/https) and only then click **Start**.
+5. If Start fails, read popup error text; it now reports exact cause (backend unavailable, API key missing, or tab injection issue).
